@@ -1,6 +1,7 @@
 (ns pyrus.core-test
   (:require [midje.sweet :refer :all]
-            [pyrus.core :as pyrus]))
+            [pyrus.core :as pyrus]
+            [clojure.math.combinatorics :as combinatorics]))
 
 (def context (pyrus/setup-context [:A :B :C]
                                      1 {:A [:a1 :a2 :a3]}
@@ -307,13 +308,21 @@
 
 (facts "all together now"
        (let [
-             all-explained (pyrus/generate [:A :B :C :D]
-                                              1 {:A [:a1 :a2 :a3]}
-                                              2 {:B [:b1 :b2]
-                                                 :C [:c1 :c2 :c3]
-                                                 :D [:d1 :d2]})
+             keys [:A :B :C :D]
+             all-explained (pyrus/generate 2 {:A [:a1 :a2 :a3]
+                                              :B [:b1 :b2 :b3]
+                                              :C [:c1 :c2 :c3]
+                                              :D [:d1 :d2 :d3]})
+             keypairs (combinatorics/combinations keys 2)
+             pairs (mapcat (fn [[p1 p2]] (map (fn [variation] [(get variation p1) (get variation p2)]) all-explained)) keypairs)
+             pair-counts (->> (group-by identity pairs)
+                              (map (fn [[k vs]] [k (count vs)]))
+                              (into {}))
              ]
-         (doseq [explained all-explained]
-           explained => (contains {:A As? :B Bs? :C Cs? :D Ds? }))
-         (count all-explained) => 6
+         (count all-explained) => 9
+         (apply max (vals pair-counts)) => 1
+         (apply min (vals pair-counts)) => 1
+         (count pair-counts) => (+ (* 3 (+ 3 3 3))          ; As * (Bs + Cs + Ds)
+                                   (* 3 (+ 3 3))            ; Bs * (Cs + Ds)
+                                   (* 3 (+ 3)))             ; Cs * (Ds)
          ))
